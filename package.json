@@ -4,16 +4,17 @@
   "description": "Automated API tests for ServeRest using Playwright",
   "main": "index.js",
   "scripts": {
-    "test": "playwright test || true",
+    "test": "playwright test",
     "test:ci": "playwright test --reporter=list,html",
-    "test:users": "playwright test tests/users/ || true",
-    "test:auth": "playwright test tests/auth/ || true",
-    "test:rate-limit": "playwright test tests/rate-limit/ || true",
+    "test:users": "playwright test tests/users/",
+    "test:auth": "playwright test tests/auth/",
+    "test:rate-limit": "playwright test tests/rate-limit/",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "test:parallel": "playwright test --workers=4",
     "test:serial": "playwright test --workers=1",
-    "test:report": "playwright show-report",
+    "report:show": "playwright show-report",
+    "report:open": "npx playwright show-report",
     "test:codegen": "playwright codegen"
   },
   "keywords": [

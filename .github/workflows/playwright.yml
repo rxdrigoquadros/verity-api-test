@@ -55,20 +55,46 @@ jobs:
       run: npm test
       continue-on-error: false
     
-    - name: Generate test report
-      if: always()
-      run: npx playwright show-report || true
+    # Removido o comando show-report que estava travando
+    # O relatório HTML já é gerado automaticamente durante os testes
     
-    - name: Upload test results
+    - name: Check test results
+      if: always()
+      run: |
+        echo "Checking for test results..."
+        if [ -d "playwright-report" ]; then
+          echo "✅ Playwright report directory found"
+          ls -la playwright-report/
+        else
+          echo "⚠️ No playwright report directory found"
+        fi
+        
+        if [ -d "test-results" ]; then
+          echo "✅ Test results directory found"
+          ls -la test-results/
+        else
+          echo "⚠️ No test results directory found"
+        fi
+    
+    - name: Upload HTML Report
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: playwright-report
+        name: playwright-html-report
         path: playwright-report/
         retention-days: 30
         if-no-files-found: warn
     
-    - name: Upload test logs
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: test-results/
+        retention-days: 30
+        if-no-files-found: warn
+    
+    - name: Upload Test Logs
       if: always()
       uses: actions/upload-artifact@v4
       with:
@@ -89,12 +115,23 @@ jobs:
         echo "- **Timeout:** $API_TIMEOUT ms" >> $GITHUB_STEP_SUMMARY
         echo "- **Retry Count:** $RETRY_COUNT" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Test Suites:" >> $GITHUB_STEP_SUMMARY
-        echo "- Users API Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- Authentication Tests" >> $GITHUB_STEP_SUMMARY
-        echo "- Rate Limit Tests" >> $GITHUB_STEP_SUMMARY
+        
+        # Tenta ler informações dos resultados se existirem
+        if [ -f "test-results/results.json" ]; then
+          echo "### Test Results:" >> $GITHUB_STEP_SUMMARY
+          echo "Results file found - check artifacts for details" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### Test Execution:" >> $GITHUB_STEP_SUMMARY
+          echo "Tests executed - check artifacts for detailed reports" >> $GITHUB_STEP_SUMMARY
+        fi
+        
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Check the artifacts for detailed test reports." >> $GITHUB_STEP_SUMMARY
+        echo "### Artifacts Generated:" >> $GITHUB_STEP_SUMMARY
+        echo "- 📊 HTML Report (view in artifacts)" >> $GITHUB_STEP_SUMMARY
+        echo "- 📝 Test Results (JSON/XML)" >> $GITHUB_STEP_SUMMARY
+        echo "- 📄 Test Logs" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Note:** Download the HTML report artifact and open index.html locally to view detailed results." >> $GITHUB_STEP_SUMMARY
 
   comment-on-pr:
     runs-on: ubuntu-latest
@@ -119,14 +156,15 @@ jobs:
           - 🟢 Runner: Ubuntu Latest
           - 🟢 API: https://serverest.dev
           
-          **Test Suites:**
-          - Users API Tests
-          - Authentication Tests  
-          - Rate Limit Tests
+          **📦 Artifacts Available:**
+          - HTML Test Report - Download and open locally
+          - Test Results (JSON/XML)
+          - Test Logs
           
-          **Artifacts Available:**
-          - 📊 Playwright Test Report
-          - 📝 Test Logs
+          **💡 How to view results:**
+          1. Click on the workflow run link below
+          2. Download the \`playwright-html-report\` artifact
+          3. Extract and open \`index.html\` in your browser
           
           [View Full Test Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
           
