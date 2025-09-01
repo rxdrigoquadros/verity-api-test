@@ -1,9 +1,4 @@
-// playwright.config.ts
 import { defineConfig, devices } from '@playwright/test';
-import * as dotenv from 'dotenv';
-
-// Carrega variáveis de ambiente
-dotenv.config();
 
 export default defineConfig({
   // Diretório onde estão os testes
@@ -75,9 +70,7 @@ export default defineConfig({
     },
   ],
   
-  // Configuração global antes de todos os testes
-  globalSetup: './utils/global-setup.ts',
-  
-  // Configuração global após todos os testes
-  globalTeardown: './utils/global-teardown.ts',
+  // Removido temporariamente até criarmos os arquivos
+  // globalSetup: './utils/global-setup.ts',
+  // globalTeardown: './utils/global-teardown.ts',
 });

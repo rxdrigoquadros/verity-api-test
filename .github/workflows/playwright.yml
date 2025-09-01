@@ -34,6 +34,23 @@ jobs:
         npm install
         npx playwright install --with-deps chromium
     
+    - name: Create necessary directories
+      run: |
+        mkdir -p tests/users
+        mkdir -p tests/auth
+        mkdir -p tests/rate-limit
+        mkdir -p utils
+        mkdir -p fixtures
+        mkdir -p logs
+        mkdir -p test-results
+        
+    - name: List project structure
+      run: |
+        echo "Project structure:"
+        ls -la
+        echo "Tests directory:"
+        ls -la tests/ || echo "No tests directory"
+        
     - name: Run all tests
       run: npm test
       continue-on-error: false
@@ -49,6 +66,7 @@ jobs:
         name: playwright-report
         path: playwright-report/
         retention-days: 30
+        if-no-files-found: warn
     
     - name: Upload test logs
       if: always()
@@ -57,19 +75,24 @@ jobs:
         name: test-logs
         path: logs/
         retention-days: 7
+        if-no-files-found: warn
     
     - name: Test Summary
       if: always()
       run: |
         echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Test Suites Executed:" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Configuration:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Node Version:** 20.x" >> $GITHUB_STEP_SUMMARY
+        echo "- **Runner OS:** Ubuntu Latest" >> $GITHUB_STEP_SUMMARY
+        echo "- **API URL:** $API_BASE_URL" >> $GITHUB_STEP_SUMMARY
+        echo "- **Timeout:** $API_TIMEOUT ms" >> $GITHUB_STEP_SUMMARY
+        echo "- **Retry Count:** $RETRY_COUNT" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Suites:" >> $GITHUB_STEP_SUMMARY
         echo "- Users API Tests" >> $GITHUB_STEP_SUMMARY
         echo "- Authentication Tests" >> $GITHUB_STEP_SUMMARY
         echo "- Rate Limit Tests" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Node Version:** 20.x" >> $GITHUB_STEP_SUMMARY
-        echo "**Runner OS:** Ubuntu Latest" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "Check the artifacts for detailed test reports." >> $GITHUB_STEP_SUMMARY
 
@@ -94,7 +117,7 @@ jobs:
           **Test Configuration:**
           - 🟢 Node Version: 20.x
           - 🟢 Runner: Ubuntu Latest
-          - 🟢 API: ${process.env.API_BASE_URL || 'https://serverest.dev'}
+          - 🟢 API: https://serverest.dev
           
           **Test Suites:**
           - Users API Tests
