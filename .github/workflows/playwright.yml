@@ -19,50 +19,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
-        test-suite: [users, auth, rate-limit]
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: |
-        npm ci
-        npx playwright install --with-deps chromium
-    
-    - name: Run ${{ matrix.test-suite }} tests
-      run: npm run test:${{ matrix.test-suite }}
-      continue-on-error: true
-    
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: playwright-report-${{ matrix.node-version }}-${{ matrix.test-suite }}
-        path: playwright-report/
-        retention-days: 30
-    
-    - name: Upload test logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-logs-${{ matrix.node-version }}-${{ matrix.test-suite }}
-        path: logs/
-        retention-days: 7
-
-  test-all:
-    runs-on: ubuntu-latest
-    needs: test
-    
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -75,38 +31,85 @@ jobs:
     
     - name: Install dependencies
       run: |
-        npm ci
+        npm install
         npx playwright install --with-deps chromium
     
     - name: Run all tests
       run: npm test
+      continue-on-error: false
     
-    - name: Generate HTML Report
+    - name: Generate test report
       if: always()
-      run: npm run test:report || true
+      run: npx playwright show-report || true
     
-    - name: Upload HTML Report
+    - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: html-report-complete
+        name: playwright-report
         path: playwright-report/
         retention-days: 30
     
+    - name: Upload test logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-logs
+        path: logs/
+        retention-days: 7
+    
+    - name: Test Summary
+      if: always()
+      run: |
+        echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Suites Executed:" >> $GITHUB_STEP_SUMMARY
+        echo "- Users API Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- Authentication Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- Rate Limit Tests" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Node Version:** 20.x" >> $GITHUB_STEP_SUMMARY
+        echo "**Runner OS:** Ubuntu Latest" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Check the artifacts for detailed test reports." >> $GITHUB_STEP_SUMMARY
+
+  comment-on-pr:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request' && always()
+    
+    steps:
     - name: Comment PR with results
-      if: github.event_name == 'pull_request' && always()
       uses: actions/github-script@v7
       with:
         script: |
-          const fs = require('fs');
-          let comment = '## 🧪 Test Results\n\n';
+          const testStatus = '${{ needs.test.result }}';
+          const statusEmoji = testStatus === 'success' ? '✅' : '❌';
+          const statusText = testStatus === 'success' ? 'PASSED' : 'FAILED';
           
-          try {
-            // Adicione lógica para ler resultados dos testes
-            comment += '✅ Tests completed. Check artifacts for detailed report.\n';
-          } catch (error) {
-            comment += '⚠️ Could not parse test results.\n';
-          }
+          const comment = `## 🧪 API Test Results
+          
+          ### Status: ${statusEmoji} ${statusText}
+          
+          **Test Configuration:**
+          - 🟢 Node Version: 20.x
+          - 🟢 Runner: Ubuntu Latest
+          - 🟢 API: ${process.env.API_BASE_URL || 'https://serverest.dev'}
+          
+          **Test Suites:**
+          - Users API Tests
+          - Authentication Tests  
+          - Rate Limit Tests
+          
+          **Artifacts Available:**
+          - 📊 Playwright Test Report
+          - 📝 Test Logs
+          
+          [View Full Test Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          
+          ---
+          *Generated at: ${new Date().toISOString()}*
+          `;
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
