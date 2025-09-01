@@ -1,4 +1,3 @@
-// utils/api-client.ts
 import { APIRequestContext } from '@playwright/test';
 
 export class ApiClient {

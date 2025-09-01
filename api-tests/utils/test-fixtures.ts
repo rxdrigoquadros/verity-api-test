@@ -1,4 +1,3 @@
-// utils/test-fixtures.ts
 import { test as base, APIRequestContext } from '@playwright/test';
 import { FixtureLoader } from './fixture-loader';
 import { ApiClient } from './api-client';

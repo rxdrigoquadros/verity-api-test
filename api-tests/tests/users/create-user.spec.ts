@@ -1,4 +1,3 @@
-// tests/users/create-user.spec.ts
 import { test, expect } from '../../utils/test-fixtures';
 import { FixtureLoader } from '../../utils/fixture-loader';
 

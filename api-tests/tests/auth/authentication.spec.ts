@@ -1,4 +1,3 @@
-// tests/auth/authentication.spec.ts
 import { test, expect } from '../../utils/test-fixtures';
 import { FixtureLoader } from '../../utils/fixture-loader';
 import { APIResponse } from '@playwright/test';

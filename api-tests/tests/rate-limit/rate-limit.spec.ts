@@ -1,4 +1,3 @@
-// tests/rate-limit/rate-limit.spec.ts
 import { test, expect } from '../../utils/test-fixtures';
 import { FixtureLoader } from '../../utils/fixture-loader';
 
