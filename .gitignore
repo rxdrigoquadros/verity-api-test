@@ -1,7 +1,41 @@
-
-# Playwright
+# Dependencies
 node_modules/
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
+package-lock.json
+
+# Test results
+test-results/
+playwright-report/
+playwright/.cache/
+test-reports/
+allure-results/
+allure-report/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+dist/
+build/
+
+# Debug
+*.map

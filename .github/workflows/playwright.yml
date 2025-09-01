@@ -2,42 +2,115 @@ name: API Tests
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
   schedule:
-    - cron: '0 */6 * * *'  # Executa a cada 6 horas
+    # Executa diariamente às 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+env:
+  API_BASE_URL: https://serverest.dev
+  API_TIMEOUT: 30000
+  RETRY_COUNT: 2
 
 jobs:
   test:
     runs-on: ubuntu-latest
     
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+        test-suite: [users, auth, rate-limit]
+    
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        npx playwright install --with-deps chromium
+    
+    - name: Run ${{ matrix.test-suite }} tests
+      run: npm run test:${{ matrix.test-suite }}
+      continue-on-error: true
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report-${{ matrix.node-version }}-${{ matrix.test-suite }}
+        path: playwright-report/
+        retention-days: 30
+    
+    - name: Upload test logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-logs-${{ matrix.node-version }}-${{ matrix.test-suite }}
+        path: logs/
+        retention-days: 7
+
+  test-all:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        npx playwright install --with-deps chromium
+    
+    - name: Run all tests
+      run: npm test
+    
+    - name: Generate HTML Report
+      if: always()
+      run: npm run test:report || true
+    
+    - name: Upload HTML Report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: html-report-complete
+        path: playwright-report/
+        retention-days: 30
+    
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let comment = '## 🧪 Test Results\n\n';
           
-      - name: Install dependencies
-        run: npm ci
-        
-      - name: Run API tests
-        run: npm test
-        
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 30
+          try {
+            // Adicione lógica para ler resultados dos testes
+            comment += '✅ Tests completed. Check artifacts for detailed report.\n';
+          } catch (error) {
+            comment += '⚠️ Could not parse test results.\n';
+          }
           
-      - name: Publish test results
-        uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: API Test Results
-          path: test-results/*.xml
-          reporter: java-junit
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
