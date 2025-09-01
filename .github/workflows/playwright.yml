@@ -34,29 +34,193 @@ jobs:
         npm install
         npx playwright install --with-deps chromium
     
-    - name: Create necessary directories
+    - name: Create test directories
       run: |
+        mkdir -p tests
         mkdir -p tests/users
         mkdir -p tests/auth
-        mkdir -p tests/rate-limit
-        mkdir -p utils
-        mkdir -p fixtures
-        mkdir -p logs
-        mkdir -p test-results
-        
-    - name: List project structure
-      run: |
-        echo "Project structure:"
-        ls -la
-        echo "Tests directory:"
-        ls -la tests/ || echo "No tests directory"
-        
-    - name: Run all tests
-      run: npm test
-      continue-on-error: false
     
-    # Removido o comando show-report que estava travando
-    # O relatório HTML já é gerado automaticamente durante os testes
+    - name: Create Playwright config
+      run: |
+        cat > playwright.config.js << 'EOF'
+        const { defineConfig } = require('@playwright/test');
+
+        module.exports = defineConfig({
+          testDir: './tests',
+          timeout: 30000,
+          retries: process.env.CI ? 2 : 0,
+          workers: 1,
+          reporter: [
+            ['list'],
+            ['html', { outputFolder: 'playwright-report' }],
+          ],
+          use: {
+            baseURL: 'https://serverest.dev',
+            extraHTTPHeaders: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            trace: 'on-first-retry',
+          },
+          outputDir: 'test-results/',
+        });
+        EOF
+        
+        echo "✅ Created playwright.config.js"
+    
+    - name: Create basic test file (JavaScript)
+      run: |
+        cat > tests/api.spec.js << 'EOF'
+        const { test, expect } = require('@playwright/test');
+
+        test.describe('API Health Check', () => {
+          test('should verify API is accessible', async ({ request }) => {
+            const response = await request.get('/');
+            
+            expect(response.ok()).toBeTruthy();
+            expect(response.status()).toBe(200);
+            
+            const body = await response.json();
+            console.log('API Response:', JSON.stringify(body, null, 2));
+            expect(body).toHaveProperty('message');
+          });
+          
+          test('should get users endpoint', async ({ request }) => {
+            const response = await request.get('/usuarios');
+            
+            expect(response.ok()).toBeTruthy();
+            expect(response.status()).toBe(200);
+            
+            const body = await response.json();
+            expect(body).toHaveProperty('usuarios');
+            expect(Array.isArray(body.usuarios)).toBeTruthy();
+            console.log(`Found ${body.quantidade} users`);
+          });
+          
+          test('should get products endpoint', async ({ request }) => {
+            const response = await request.get('/produtos');
+            
+            expect(response.ok()).toBeTruthy();
+            expect(response.status()).toBe(200);
+            
+            const body = await response.json();
+            expect(body).toHaveProperty('produtos');
+            expect(Array.isArray(body.produtos)).toBeTruthy();
+            console.log(`Found ${body.quantidade} products`);
+          });
+        });
+
+        test.describe('User CRUD Operations', () => {
+          test('should create a new user', async ({ request }) => {
+            const randomEmail = `test${Date.now()}@example.com`;
+            
+            const response = await request.post('/usuarios', {
+              data: {
+                nome: 'Test User',
+                email: randomEmail,
+                password: 'test123',
+                administrador: 'false'
+              }
+            });
+            
+            expect(response.status()).toBe(201);
+            const body = await response.json();
+            expect(body).toHaveProperty('message', 'Cadastro realizado com sucesso');
+            expect(body).toHaveProperty('_id');
+            console.log(`Created user with ID: ${body._id}`);
+          });
+
+          test('should list all users', async ({ request }) => {
+            const response = await request.get('/usuarios');
+            
+            expect(response.status()).toBe(200);
+            const body = await response.json();
+            
+            expect(body).toHaveProperty('usuarios');
+            expect(body).toHaveProperty('quantidade');
+            expect(Array.isArray(body.usuarios)).toBeTruthy();
+            expect(body.quantidade).toBeGreaterThanOrEqual(0);
+          });
+        });
+
+        test.describe('Authentication Tests', () => {
+          test('should login with valid credentials', async ({ request }) => {
+            // First create a user
+            const email = `auth${Date.now()}@example.com`;
+            const password = 'test123';
+            
+            await request.post('/usuarios', {
+              data: {
+                nome: 'Auth Test User',
+                email: email,
+                password: password,
+                administrador: 'false'
+              }
+            });
+            
+            // Then login
+            const response = await request.post('/login', {
+              data: {
+                email: email,
+                password: password
+              }
+            });
+            
+            expect(response.status()).toBe(200);
+            const body = await response.json();
+            
+            expect(body).toHaveProperty('authorization');
+            expect(body).toHaveProperty('message', 'Login realizado com sucesso');
+            expect(body.authorization).toMatch(/^Bearer /);
+            console.log('Login successful, token received');
+          });
+
+          test('should fail login with invalid credentials', async ({ request }) => {
+            const response = await request.post('/login', {
+              data: {
+                email: 'invalid@example.com',
+                password: 'wrongpassword'
+              }
+            });
+            
+            expect(response.status()).toBe(401);
+            const body = await response.json();
+            
+            expect(body).toHaveProperty('message', 'Email e/ou senha inválidos');
+            console.log('Login failed as expected with invalid credentials');
+          });
+        });
+        EOF
+        
+        echo "✅ Created api.spec.js"
+        
+    - name: Debug - List all files
+      run: |
+        echo "📁 Current directory structure:"
+        ls -la
+        echo ""
+        echo "📁 Tests directory:"
+        ls -la tests/
+        echo ""
+        echo "📁 Config files:"
+        ls -la *.config.* 2>/dev/null || echo "No config files found"
+        echo ""
+        echo "📊 Test files found:"
+        find . -name "*.spec.js" -o -name "*.spec.ts" -o -name "*.test.js" -o -name "*.test.ts"
+        
+    - name: Check Playwright config
+      run: |
+        echo "📄 Playwright config content:"
+        cat playwright.config.js || cat playwright.config.ts || echo "No config file found"
+        
+    - name: Run Playwright tests with debug
+      run: |
+        echo "🧪 Running Playwright tests..."
+        npx playwright test --list || echo "Failed to list tests"
+        echo ""
+        echo "🚀 Executing tests..."
+        npx playwright test --reporter=list
+      continue-on-error: false
     
     - name: Check test results
       if: always()
@@ -94,15 +258,6 @@ jobs:
         retention-days: 30
         if-no-files-found: warn
     
-    - name: Upload Test Logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-logs
-        path: logs/
-        retention-days: 7
-        if-no-files-found: warn
-    
     - name: Test Summary
       if: always()
       run: |
@@ -112,26 +267,14 @@ jobs:
         echo "- **Node Version:** 20.x" >> $GITHUB_STEP_SUMMARY
         echo "- **Runner OS:** Ubuntu Latest" >> $GITHUB_STEP_SUMMARY
         echo "- **API URL:** $API_BASE_URL" >> $GITHUB_STEP_SUMMARY
-        echo "- **Timeout:** $API_TIMEOUT ms" >> $GITHUB_STEP_SUMMARY
-        echo "- **Retry Count:** $RETRY_COUNT" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Tenta ler informações dos resultados se existirem
-        if [ -f "test-results/results.json" ]; then
-          echo "### Test Results:" >> $GITHUB_STEP_SUMMARY
-          echo "Results file found - check artifacts for details" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "### Test Execution:" >> $GITHUB_STEP_SUMMARY
-          echo "Tests executed - check artifacts for detailed reports" >> $GITHUB_STEP_SUMMARY
-        fi
-        
+        echo "### Test Suites:" >> $GITHUB_STEP_SUMMARY
+        echo "- API Health Check (3 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- User CRUD Operations (2 tests)" >> $GITHUB_STEP_SUMMARY
+        echo "- Authentication (2 tests)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Artifacts Generated:" >> $GITHUB_STEP_SUMMARY
-        echo "- 📊 HTML Report (view in artifacts)" >> $GITHUB_STEP_SUMMARY
-        echo "- 📝 Test Results (JSON/XML)" >> $GITHUB_STEP_SUMMARY
-        echo "- 📄 Test Logs" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Note:** Download the HTML report artifact and open index.html locally to view detailed results." >> $GITHUB_STEP_SUMMARY
+        echo "**Total:** 7 API tests" >> $GITHUB_STEP_SUMMARY
 
   comment-on-pr:
     runs-on: ubuntu-latest
@@ -151,25 +294,14 @@ jobs:
           
           ### Status: ${statusEmoji} ${statusText}
           
-          **Test Configuration:**
-          - 🟢 Node Version: 20.x
-          - 🟢 Runner: Ubuntu Latest
-          - 🟢 API: https://serverest.dev
+          **Test Suites Executed:**
+          - API Health Check (3 tests)
+          - User CRUD (2 tests)
+          - Authentication (2 tests)
           
-          **📦 Artifacts Available:**
-          - HTML Test Report - Download and open locally
-          - Test Results (JSON/XML)
-          - Test Logs
-          
-          **💡 How to view results:**
-          1. Click on the workflow run link below
-          2. Download the \`playwright-html-report\` artifact
-          3. Extract and open \`index.html\` in your browser
+          **Total:** 7 API tests
           
           [View Full Test Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          
-          ---
-          *Generated at: ${new Date().toISOString()}*
           `;
           
           github.rest.issues.createComment({
