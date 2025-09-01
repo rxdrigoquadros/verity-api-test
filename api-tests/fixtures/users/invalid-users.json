@@ -1,0 +1,42 @@
+{
+  "missingName": {
+    "email": "teste@teste.com",
+    "password": "senha123",
+    "administrador": "false"
+  },
+  "missingEmail": {
+    "nome": "Teste User",
+    "password": "senha123",
+    "administrador": "false"
+  },
+  "invalidEmail": {
+    "nome": "Teste User",
+    "email": "email-invalido",
+    "password": "senha123",
+    "administrador": "false"
+  },
+  "shortPassword": {
+    "nome": "Teste User",
+    "email": "teste@teste.com",
+    "password": "123",
+    "administrador": "false"
+  },
+  "invalidAdminField": {
+    "nome": "Teste User",
+    "email": "teste@teste.com",
+    "password": "senha123",
+    "administrador": "sim"
+  },
+  "emptyFields": {
+    "nome": "",
+    "email": "",
+    "password": "",
+    "administrador": ""
+  },
+  "sqlInjection": {
+    "nome": "'; DROP TABLE users; --",
+    "email": "test@test.com",
+    "password": "senha123",
+    "administrador": "false"
+  }
+}
